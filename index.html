@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
+<meta name="theme-color" content="#07070f"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="Card Tracker"/>
+<title>Card Tracker</title>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#07070f;color:#e2e8f0;font-family:sans-serif;max-width:430px;margin:0 auto}
+::-webkit-scrollbar{display:none}
+input::placeholder{color:#3a3a5c}
+select option{background:#0f0f1a}
+.tab-btn{flex:1;background:none;border:none;cursor:pointer;padding:10px 0 18px;display:flex;flex-direction:column;align-items:center;gap:3px;color:#475569;font-size:10px;font-weight:600}
+.tab-btn.on{color:#a78bfa}
+.action-btn{flex:1;padding:14px;border:none;border-radius:14px;font-size:15px;font-weight:700;cursor:pointer}
+.modal-bg{position:fixed;inset:0;background:#000000bb;backdrop-filter:blur(6px);z-index:100;display:flex;align-items:flex-end;justify-content:center}
+.modal-sheet{background:#0f0f1a;border-radius:24px 24px 0 0;border-top:1px solid #2a2a3e;padding:28px 20px 40px;width:100%;max-width:430px;max-height:92vh;overflow-y:auto}
+.lbl{font-size:11px;color:#475569;font-weight:700;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:6px}
+.fld{margin-bottom:14px}
+.card-row{display:flex;align-items:center;gap:12px;padding:14px 16px;background:#0f0f1a;border-radius:16px;border:1px solid #1a1a2e;cursor:pointer;margin-bottom:10px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.spin{animation:spin 1s linear infinite;display:inline-block;width:18px;height:18px;border:2px solid #475569;border-top-color:#a78bfa;border-radius:50%}
+@keyframes fu{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+.fu{animation:fu .3s ease forwards}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState,useEffect,useRef} = React;
+
+const usd=n=>new Intl.NumberFormat("en-US",{style:"currency",currency:"USD",maximumFractionDigits:2}).format(n||0);
+const getDays=day=>{const n=new Date();n.setHours(0,0,0,0);const d=new Date(n.getFullYear(),n.getMonth(),day);if(d<n)d.setMonth(d.getMonth()+1);return Math.ceil((d-n)/86400000)};
+const uc=d=>d<0?"#ef4444":d<=3?"#f97316":d<=7?"#eab308":"#22c55e";
+const BANKS=["Chase","Bank of America","Wells Fargo","Citibank","Capital One","American Express","Discover","US Bank","TD Bank","PNC Bank","Barclays","Synchrony","Navy Federal","USAA","Other"];
+const CC=[{bg:"linear-gradient(135deg,#1a1a2e,#16213e)",ac:"#4fc3f7"},{bg:"linear-gradient(135deg,#0f2027,#203a43,#2c5364)",ac:"#80cbc4"},{bg:"linear-gradient(135deg,#1b1b2f,#2c2c54)",ac:"#b39ddb"},{bg:"linear-gradient(135deg,#0d1b2a,#1b263b)",ac:"#f48fb1"},{bg:"linear-gradient(135deg,#1a0533,#2d1b69)",ac:"#ce93d8"},{bg:"linear-gradient(135deg,#1c1c1c,#3a3a3a)",ac:"#f9a825"}];
+const DEMO=[{id:1,bank:"Chase",name:"Sapphire Reserve",limit:10000,balance:3420,apr:24.99,minPay:35,cutDay:15,payDay:10,ci:0},{id:2,bank:"Capital One",name:"Venture X",limit:8000,balance:5800,apr:29.99,minPay:58,cutDay:22,payDay:17,ci:1}];
+
+function useLS(k,fb){
+  const[v,sv]=useState(()=>{try{const s=localStorage.getItem(k);return s?JSON.parse(s):fb}catch{return fb}});
+  useEffect(()=>{try{localStorage.setItem(k,JSON.stringify(v))}catch{}},[k,v]);
+  return[v,sv];
+}
+
+function CardUI({card,small}){
+  const c=CC[card.ci%6];
+  const util=(card.balance/card.limit)*100;
+  return(
+    <div style={{background:c.bg,borderRadius:16,padding:small?"14px 16px":"20px 22px",width:small?180:"100%",minHeight:small?100:155,boxShadow:"0 8px 32px #00000060",position:"relative",overflow:"hidden",flexShrink:0,border:"1px solid #ffffff08"}}>
+      <div style={{position:"absolute",top:-30,right:-20,width:120,height:120,borderRadius:"50%",background:"#ffffff05"}}/>
+      <div style={{display:"flex",justifyContent:"space-between",marginBottom:10}}>
+        <div>
+          <div style={{fontSize:small?9:10,color:c.ac,fontWeight:700,textTransform:"uppercase",letterSpacing:1}}>{card.bank}</div>
+          <div style={{fontSize:small?12:13,color:"#ffffffcc",fontWeight:600,marginTop:2}}>{card.name}</div>
+        </div>
+        <div style={{fontSize:9,color:"#ffffff60"}}>APR {card.apr}%</div>
+      </div>
+      {!small&&<>
+        <div style={{marginBottom:10}}>
+          <div style={{height:4,background:"#ffffff15",borderRadius:99,overflow:"hidden"}}>
+            <div style={{height:"100%",width:`${Math.min(util,100)}%`,background:util>80?"#ef4444":util>50?"#f59e0b":c.ac,borderRadius:99}}/>
+          </div>
+          <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:"#ffffff60",marginTop:4}}>
+            <span>Utilization {util.toFixed(0)}%</span><span>Limit {usd(card.limit)}</span>
+          </div>
+        </div>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end"}}>
+          <div>
+            <div style={{fontSize:10,color:"#ffffff50"}}>Balance</div>
+            <div style={{fontSize:22,fontWeight:800,color:"#fff",fontFamily:"monospace",letterSpacing:-1}}>{usd(card.balance)}</div>
+          </div>
+          <div style={{textAlign:"right"}}>
+            <div style={{fontSize:9,color:"#ffffff50"}}>Pay by day {card.payDay}</div>
+            <div style={{fontSize:12,color:c.ac,fontWeight:700}}>Min {usd(card.minPay)}</div>
+          </div>
+        </div>
+      </>}
+      {small&&<div>
+        <div style={{fontSize:16,fontWeight:800,color:"#fff",fontFamily:"monospace"}}>{usd(card.balance)}</div>
+        <div style={{fontSize:9,color:c.ac,marginTop:2}}>Min {usd(card.minPay)}/mo</div>
+      </div>}
+    </div>
+  );
+}
+
+function App(){
+  const[cards,setCards]=useLS("ct_v3",DEMO);
+  const[tab,setTab]=useState("home");
+  const[modal,setModal]=useState(null);
+  const[selId,setSelId]=useState(null);
+  const[toast,setToast]=useState(null);
+  const[aiMsg,setAiMsg]=useState("");
+  const[aiLoad,setAiLoad]=useState(false);
+  const[aiRes,setAiRes]=useState(null);
+  const[budget,setBudget]=useState("");
+  const ref=useRef(null);
+  const blank={bank:"Chase",name:"",limit:"",balance:"",apr:"",minPay:"",cutDay:"",payDay:"",ci:0};
+  const[form,setForm]=useState(blank);
+  const[payAmt,setPayAmt]=useState("");
+  const sel=cards.find(c=>c.id===selId);
+  const tDebt=cards.reduce((s,c)=>s+c.balance,0);
+  const tLimit=cards.reduce((s,c)=>s+c.limit,0);
+  const tMin=cards.reduce((s,c)=>s+c.minPay,0);
+  const gUtil=tLimit>0?(tDebt/tLimit)*100:0;
+  const toast_=( msg,type="ok")=>{setToast({msg,type});setTimeout(()=>setToast(null),2800)};
+
+  const saveCard=()=>{
+    if(!form.bank||!form.balance||!form.limit)return;
+    if(modal==="edit"&&selId)setCards(cards.map(c=>c.id===selId?{...c,...form,limit:+form.limit,balance:+form.balance,apr:+form.apr,minPay:+form.minPay,cutDay:+form.cutDay,payDay:+form.payDay,ci:+form.ci}:c));
+    else setCards([...cards,{...form,id:Date.now(),limit:+form.limit,balance:+form.balance,apr:+form.apr,minPay:+form.minPay,cutDay:+form.cutDay,payDay:+form.payDay,ci:+form.ci}]);
+    toast_(modal==="edit"?"Card updated ✓":"Card added ✓");
+    setForm(blank);setModal(null);
+  };
+
+  const recPay=()=>{
+    if(!payAmt||!selId)return;
+    setCards(cards.map(c=>c.id===selId?{...c,balance:Math.max(0,c.balance-+payAmt)}:c));
+    toast_(`Payment of ${usd(+payAmt)} recorded ✓`);
+    setPayAmt("");setModal(null);
+  };
+
+  const delCard=()=>{setCards(cards.filter(c=>c.id!==selId));setSelId(null);setModal(null);toast_("Card removed","err")};
+
+  const getAI=async()=>{
+    if(!budget&&!aiMsg)return;
+    setAiLoad(true);setAiRes(null);
+    const cd=cards.map(c=>`- ${c.bank} ${c.name}: Balance $${c.balance}, APR ${c.apr}%, Min $${c.minPay}, Limit $${c.limit}`).join("\n");
+    const q=aiMsg||`I have $${budget} available. Which card should I prioritize and how much on each?`;
+    const prompt=`You are a personal finance advisor. Cards:\n${cd}\nTotal debt: $${tDebt.toFixed(2)}\n\nQuestion: ${q}\n\nGive specific advice. If budget mentioned, tell exactly how much per card. Use Avalanche or Snowball as appropriate. Use emojis, be concise, under 300 words.`;
+    try{
+      const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1000,messages:[{role:"user",content:prompt}]})});
+      const d=await r.json();
+      setAiRes(d.content?.[0]?.text||"Unable to get advice.");
+    }catch{setAiRes("Connection error. Try again.");}
+    setAiLoad(false);
+    setTimeout(()=>ref.current?.scrollIntoView({behavior:"smooth"}),100);
+  };
+
+  const inp={background:"#0f0f1a",border:"1px solid #2a2a3e",color:"#e2e8f0",padding:"12px 14px",borderRadius:12,fontSize:15,width:"100%",outline:"none"};
+
+  return(
+    <div style={{minHeight:"100vh",paddingBottom:80}}>
+      {/* Header */}
+      <div style={{padding:"52px 20px 20px",background:"linear-gradient(180deg,#0d0d1f,#07070f)"}}>
+        <div style={{fontSize:11,color:"#475569",fontWeight:600,letterSpacing:1,textTransform:"uppercase"}}>Personal Finance</div>
+        <div style={{fontSize:28,fontWeight:900,color:"#f1f5f9",letterSpacing:-1,marginTop:2}}>💳 Card Tracker</div>
+      </div>
+
+      {/* HOME */}
+      {tab==="home"&&<div style={{padding:"0 20px"}} className="fu">
+        <div style={{background:"linear-gradient(135deg,#1a1040,#0f0a2a)",borderRadius:20,padding:"22px 20px",marginBottom:20,border:"1px solid #2a1f4e",position:"relative",overflow:"hidden"}}>
+          <div style={{position:"absolute",top:-30,right:-20,width:140,height:140,borderRadius:"50%",background:"#ffffff04"}}/>
+          <div style={{fontSize:11,color:"#7c6fcd",fontWeight:700,textTransform:"uppercase",letterSpacing:1}}>Total Credit Card Debt</div>
+          <div style={{fontSize:38,fontWeight:900,color:"#fff",fontFamily:"monospace",letterSpacing:-2,margin:"6px 0 4px"}}>{usd(tDebt)}</div>
+          <div style={{display:"flex",gap:16,marginTop:10}}>
+            {[["Total Limit",usd(tLimit),"#a78bfa"],["Monthly Min",usd(tMin),"#f59e0b"],["Utilization",gUtil.toFixed(0)+"%",gUtil>80?"#ef4444":gUtil>50?"#f59e0b":"#22c55e"]].map(([l,v,c])=>(
+              <div key={l}><div style={{fontSize:10,color:"#6b6b8a"}}>{l}</div><div style={{fontSize:14,fontWeight:700,color:c}}>{v}</div></div>
+            ))}
+          </div>
+          <div style={{height:4,background:"#ffffff10",borderRadius:99,marginTop:14,overflow:"hidden"}}>
+            <div style={{height:"100%",width:`${Math.min(gUtil,100)}%`,background:gUtil>80?"#ef4444":gUtil>50?"#f59e0b":"#7c6fcd",borderRadius:99}}/>
+          </div>
+        </div>
+        <div style={{fontSize:12,color:"#475569",fontWeight:700,marginBottom:10,letterSpacing:.5}}>UPCOMING PAYMENTS</div>
+        {[...cards].sort((a,b)=>getDays(a.payDay)-getDays(b.payDay)).map(card=>{
+          const dl=getDays(card.payDay),u=uc(dl);
+          return(<div key={card.id} className="card-row" onClick={()=>{setSelId(card.id);setTab("cards")}}>
+            <div style={{width:42,height:42,borderRadius:12,background:CC[card.ci%6].bg,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,flexShrink:0}}>💳</div>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontWeight:700,fontSize:14,color:"#f1f5f9"}}>{card.bank}</div>
+              <div style={{fontSize:12,color:"#475569"}}>{card.name}</div>
+            </div>
+            <div style={{textAlign:"right",flexShrink:0}}>
+              <div style={{fontFamily:"monospace",fontWeight:700,color:"#f1f5f9",fontSize:15}}>{usd(card.balance)}</div>
+              <div style={{fontSize:11,fontWeight:700,color:u,background:`${u}18`,padding:"3px 8px",borderRadius:20,marginTop:3}}>{dl===0?"Due today":dl===1?"Tomorrow":`Day ${card.payDay}`}</div>
+            </div>
+          </div>);
+        })}
+        {cards.length===0&&<div style={{textAlign:"center",padding:"40px 0",color:"#3a3a5c"}}><div style={{fontSize:36,marginBottom:10}}>💳</div><div>No cards yet</div></div>}
+        {cards.length>0&&<button onClick={()=>setTab("advisor")} style={{width:"100%",marginTop:16,padding:16,background:"linear-gradient(135deg,#1a0f3a,#2d1b6e)",border:"1px solid #4c3a8a",borderRadius:16,color:"#c4b5fd",fontWeight:700,fontSize:15,cursor:"pointer"}}>🤖 Get AI Payment Advice</button>}
+      </div>}
+
+      {/* CARDS */}
+      {tab==="cards"&&<div style={{padding:"0 20px"}} className="fu">
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+          <div style={{fontSize:13,fontWeight:700,color:"#64748b",letterSpacing:.5}}>ALL CARDS ({cards.length})</div>
+          <button onClick={()=>{setForm(blank);setSelId(null);setModal("add")}} style={{background:"#1a0f3a",border:"1px solid #4c3a8a",color:"#c4b5fd",padding:"8px 14px",borderRadius:12,fontWeight:700,fontSize:13,cursor:"pointer"}}>+ Add</button>
+        </div>
+        {cards.map(card=>{
+          const util=(card.balance/card.limit)*100;
+          return(<div key={card.id} style={{marginBottom:16}}>
+            <CardUI card={card}/>
+            <div style={{background:"#0f0f1a",border:"1px solid #1a1a2e",borderRadius:"0 0 16px 16px",padding:"14px 16px",marginTop:-8,paddingTop:18}}>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:14}}>
+                {[["Cut Date",`Day ${card.cutDay}`],["Pay Date",`Day ${card.payDay}`],["APR",`${card.apr}%`],["Limit",usd(card.limit)],["Min Pay",usd(card.minPay)],["Available",usd(card.limit-card.balance)]].map(([l,v])=>(
+                  <div key={l} style={{textAlign:"center"}}>
+                    <div style={{fontSize:10,color:"#475569",fontWeight:600}}>{l}</div>
+                    <div style={{fontSize:13,fontWeight:700,color:"#c4b5fd",marginTop:2}}>{v}</div>
+                  </div>
+                ))}
+              </div>
+              <div style={{display:"flex",gap:8}}>
+                <button className="action-btn" style={{background:"#1a2a1a",color:"#22c55e"}} onClick={()=>{setSelId(card.id);setPayAmt(String(card.minPay));setModal("pay")}}>💸 Pay</button>
+                <button className="action-btn" style={{background:"#1a1a2a",color:"#a78bfa"}} onClick={()=>{setSelId(card.id);setForm({...card,limit:String(card.limit),balance:String(card.balance),apr:String(card.apr),minPay:String(card.minPay),cutDay:String(card.cutDay),payDay:String(card.payDay),ci:String(card.ci)});setModal("edit")}}>✏️ Edit</button>
+                <button className="action-btn" style={{background:"#2a1a1a",color:"#ef4444",flex:"0 0 44px",padding:"14px 0"}} onClick={()=>{setSelId(card.id);setModal("del")}}>🗑</button>
+              </div>
+            </div>
+          </div>);
+        })}
+        {cards.length===0&&<div style={{textAlign:"center",padding:"60px 0",color:"#3a3a5c"}}>
+          <div style={{fontSize:48,marginBottom:12}}>💳</div>
+          <button onClick={()=>{setForm(blank);setModal("add")}} style={{marginTop:20,background:"linear-gradient(135deg,#4c3a8a,#6d28d9)",border:"none",color:"#fff",padding:"14px 28px",borderRadius:14,fontWeight:700,fontSize:15,cursor:"pointer"}}>+ Add Your First Card</button>
+        </div>}
+      </div>}
+
+      {/* ADVISOR */}
+      {tab==="advisor"&&<div style={{padding:"0 20px"}} className="fu">
+        <div style={{background:"linear-gradient(135deg,#0f0a2a,#1a0f3a)",borderRadius:20,padding:20,marginBottom:20,border:"1px solid #2a1f4e"}}>
+          <div style={{fontSize:22,fontWeight:800}}>🤖 AI Advisor</div>
+          <div style={{fontSize:13,color:"#7c6fcd",marginTop:4}}>Personalized payoff advice for your cards</div>
+        </div>
+        {cards.length===0?<div style={{textAlign:"center",padding:"40px 0",color:"#3a3a5c"}}><div style={{fontSize:36,marginBottom:10}}>💳</div><div>Add cards first</div></div>:<>
+          <div style={{marginBottom:16}}>
+            <div style={{fontSize:12,color:"#475569",fontWeight:700,letterSpacing:.5,marginBottom:10}}>YOUR CARDS</div>
+            <div style={{display:"flex",gap:10,overflowX:"auto",paddingBottom:4}}>
+              {cards.map(c=><CardUI key={c.id} card={c} small/>)}
+            </div>
+          </div>
+          <div style={{background:"#0f0f1a",borderRadius:16,padding:16,border:"1px solid #1a1a2e",marginBottom:14}}>
+            <label className="lbl">💰 How much can you pay this month?</label>
+            <div style={{position:"relative"}}>
+              <span style={{position:"absolute",left:14,top:"50%",transform:"translateY(-50%)",color:"#475569",fontWeight:700}}>$</span>
+              <input style={{...inp,paddingLeft:28}} type="number" placeholder="0.00" value={budget} onChange={e=>setBudget(e.target.value)}/>
+            </div>
+          </div>
+          <div style={{background:"#0f0f1a",borderRadius:16,padding:16,border:"1px solid #1a1a2e",marginBottom:16}}>
+            <label className="lbl">💬 Or ask a specific question</label>
+            <textarea value={aiMsg} onChange={e=>setAiMsg(e.target.value)} placeholder="e.g. Which card should I pay off first?" style={{...inp,minHeight:90,resize:"none",lineHeight:1.5}}/>
+          </div>
+          <button onClick={getAI} disabled={aiLoad} style={{width:"100%",padding:16,background:aiLoad?"#1a1a2e":"linear-gradient(135deg,#4c3a8a,#7c3aed)",border:"none",borderRadius:14,color:aiLoad?"#475569":"#fff",fontWeight:800,fontSize:16,cursor:aiLoad?"not-allowed":"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:10,marginBottom:20}}>
+            {aiLoad?<><div className="spin"/>Analyzing...</>:"🧠 Get My Advice"}
+          </button>
+          {aiRes&&<div ref={ref} style={{background:"linear-gradient(135deg,#0a1a0a,#0f1f0f)",border:"1px solid #1a3a1a",borderRadius:20,padding:20}} className="fu">
+            <div style={{fontSize:13,color:"#22c55e",fontWeight:700,marginBottom:12}}>✅ AI Recommendation</div>
+            <div style={{fontSize:14,color:"#d1fae5",lineHeight:1.7,whiteSpace:"pre-wrap"}}>{aiRes}</div>
+            <button onClick={()=>{setAiRes(null);setAiMsg("");setBudget("")}} style={{marginTop:16,background:"none",border:"1px solid #1a3a1a",color:"#475569",padding:"8px 16px",borderRadius:10,fontSize:12,cursor:"pointer"}}>Clear & Ask Again</button>
+          </div>}
+        </>}
+      </div>}
+
+      {/* Bottom Nav */}
+      <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:430,background:"#0a0a18",borderTop:"1px solid #1a1a2e",display:"flex",padding:"8px 0 20px",zIndex:50}}>
+        {[["home","🏠","Home"],["cards","💳","Cards"],["advisor","🤖","Advisor"]].map(([t,icon,label])=>(
+          <button key={t} className={`tab-btn ${tab===t?"on":""}`} onClick={()=>setTab(t)}>
+            <span style={{fontSize:22}}>{icon}</span><span>{label}</span>
+          </button>
+        ))}
+      </div>
+
+      {/* Modal Add/Edit */}
+      {(modal==="add"||modal==="edit")&&<div className="modal-bg" onClick={()=>setModal(null)}>
+        <div className="modal-sheet" onClick={e=>e.stopPropagation()}>
+          <div style={{width:40,height:4,background:"#2a2a3e",borderRadius:99,margin:"0 auto 24px"}}/>
+          <div style={{fontSize:20,fontWeight:800,marginBottom:16}}>{modal==="edit"?"Edit Card":"Add New Card"}</div>
+          <div style={{marginBottom:14}}>
+            <CardUI card={{...form,limit:+form.limit||10000,balance:+form.balance||0,apr:+form.apr||0,minPay:+form.minPay||0,cutDay:+form.cutDay||15,payDay:+form.payDay||10,ci:+form.ci}}/>
+          </div>
+          <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap"}}>
+            {CC.map((c,i)=>(
+              <div key={i} onClick={()=>setForm({...form,ci:i})} style={{width:28,height:28,borderRadius:"50%",background:c.bg,cursor:"pointer",border:`3px solid ${+form.ci===i?"#fff":"transparent"}`,transition:"all .15s"}}/>
+            ))}
+          </div>
+          <div className="fld"><label className="lbl">Bank</label><select style={inp} value={form.bank} onChange={e=>setForm({...form,bank:e.target.value})}>{BANKS.map(b=><option key={b}>{b}</option>)}</select></div>
+          <div className="fld"><label className="lbl">Card Name</label><input style={inp} placeholder="e.g. Sapphire Reserve" value={form.name} onChange={e=>setForm({...form,name:e.target.value})}/></div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+            <div className="fld"><label className="lbl">Credit Limit ($)</label><input style={inp} type="number" placeholder="10000" value={form.limit} onChange={e=>setForm({...form,limit:e.target.value})}/></div>
+            <div className="fld"><label className="lbl">Balance ($)</label><input style={inp} type="number" placeholder="0" value={form.balance} onChange={e=>setForm({...form,balance:e.target.value})}/></div>
+            <div className="fld"><label className="lbl">APR (%)</label><input style={inp} type="number" placeholder="24.99" value={form.apr} onChange={e=>setForm({...form,apr:e.target.value})}/></div>
+            <div className="fld"><label className="lbl">Min Payment ($)</label><input style={inp} type="number" placeholder="25" value={form.minPay} onChange={e=>setForm({...form,minPay:e.target.value})}/></div>
+            <div className="fld"><label className="lbl">Cut Date (day#)</label><input style={inp} type="number" min="1" max="31" placeholder="15" value={form.cutDay} onChange={e=>setForm({...form,cutDay:e.target.value})}/></div>
+            <div className="fld"><label className="lbl">Pay Due (day#)</label><input style={inp} type="number" min="1" max="31" placeholder="10" value={form.payDay} onChange={e=>setForm({...form,payDay:e.target.value})}/></div>
+          </div>
+          <div style={{display:"flex",gap:10,marginTop:8}}>
+            <button className="action-btn" style={{background:"linear-gradient(135deg,#4c3a8a,#7c3aed)",color:"#fff"}} onClick={saveCard}>{modal==="edit"?"Save":"Add Card"}</button>
+            <button className="action-btn" style={{background:"#1a1a2e",color:"#64748b",flex:"0 0 80px"}} onClick={()=>setModal(null)}>Cancel</button>
+          </div>
+        </div>
+      </div>}
+
+      {/* Modal Pay */}
+      {modal==="pay"&&sel&&<div className="modal-bg" onClick={()=>setModal(null)}>
+        <div className="modal-sheet" onClick={e=>e.stopPropagation()}>
+          <div style={{width:40,height:4,background:"#2a2a3e",borderRadius:99,margin:"0 auto 24px"}}/>
+          <div style={{fontSize:20,fontWeight:800,marginBottom:6}}>Record Payment</div>
+          <div style={{fontSize:13,color:"#475569",marginBottom:16}}>{sel.bank} — {sel.name}</div>
+          <div style={{background:"#0a1a0a",border:"1px solid #1a3a1a",borderRadius:14,padding:14,marginBottom:16}}>
+            <div style={{display:"flex",justifyContent:"space-between"}}><span style={{fontSize:13,color:"#64748b"}}>Balance</span><span style={{fontFamily:"monospace",fontWeight:700,color:"#ef4444"}}>{usd(sel.balance)}</span></div>
+            <div style={{display:"flex",justifyContent:"space-between",marginTop:6}}><span style={{fontSize:13,color:"#64748b"}}>Min payment</span><span style={{fontFamily:"monospace",fontWeight:700,color:"#f59e0b"}}>{usd(sel.minPay)}</span></div>
+          </div>
+          <div className="fld">
+            <label className="lbl">Amount ($)</label>
+            <div style={{position:"relative"}}>
+              <span style={{position:"absolute",left:14,top:"50%",transform:"translateY(-50%)",color:"#475569",fontWeight:700,fontSize:18}}>$</span>
+              <input style={{...inp,paddingLeft:28,fontSize:22,fontWeight:700}} type="number" value={payAmt} onChange={e=>setPayAmt(e.target.value)}/>
+            </div>
+          </div>
+          <div style={{display:"flex",gap:8,marginBottom:16}}>
+            {[sel.minPay,sel.minPay*2,sel.balance].filter((v,i,a)=>a.indexOf(v)===i).map(v=>(
+              <button key={v} onClick={()=>setPayAmt(String(v))} style={{flex:1,padding:"8px 4px",background:+payAmt===v?"#1a3a1a":"#0f0f1a",border:`1px solid ${+payAmt===v?"#22c55e":"#1a1a2e"}`,borderRadius:10,color:+payAmt===v?"#22c55e":"#64748b",fontSize:12,fontWeight:700,cursor:"pointer"}}>
+                {v===sel.balance?"Full":v===sel.minPay?"Min":"2×Min"}<br/><span style={{fontFamily:"monospace",fontSize:11}}>{usd(v)}</span>
+              </button>
+            ))}
+          </div>
+          <div style={{display:"flex",gap:10}}>
+            <button className="action-btn" style={{background:"linear-gradient(135deg,#1a3a1a,#166534)",color:"#22c55e"}} onClick={recPay}>✓ Record</button>
+            <button className="action-btn" style={{background:"#1a1a2e",color:"#64748b",flex:"0 0 80px"}} onClick={()=>setModal(null)}>Cancel</button>
+          </div>
+        </div>
+      </div>}
+
+      {/* Modal Delete */}
+      {modal==="del"&&sel&&<div className="modal-bg" onClick={()=>setModal(null)}>
+        <div className="modal-sheet" onClick={e=>e.stopPropagation()}>
+          <div style={{width:40,height:4,background:"#2a2a3e",borderRadius:99,margin:"0 auto 24px"}}/>
+          <div style={{fontSize:36,textAlign:"center",marginBottom:12}}>🗑️</div>
+          <div style={{fontSize:18,fontWeight:800,textAlign:"center",marginBottom:8}}>Remove this card?</div>
+          <div style={{fontSize:14,color:"#64748b",textAlign:"center",marginBottom:24}}>{sel.bank} — {sel.name}</div>
+          <div style={{display:"flex",gap:10}}>
+            <button className="action-btn" style={{background:"#2a1a1a",color:"#ef4444"}} onClick={delCard}>Yes, Remove</button>
+            <button className="action-btn" style={{background:"#1a1a2e",color:"#64748b"}} onClick={()=>setModal(null)}>Cancel</button>
+          </div>
+        </div>
+      </div>}
+
+      {/* Toast */}
+      {toast&&<div style={{position:"fixed",top:24,left:"50%",transform:"translateX(-50%)",background:toast.type==="err"?"#2a1a1a":"#1a2a1a",border:`1px solid ${toast.type==="err"?"#ef4444":"#22c55e"}`,color:toast.type==="err"?"#ef4444":"#22c55e",padding:"12px 22px",borderRadius:14,fontWeight:700,fontSize:14,zIndex:300,whiteSpace:"nowrap"}} className="fu">{toast.msg}</div>}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
